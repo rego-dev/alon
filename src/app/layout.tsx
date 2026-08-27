@@ -73,7 +73,14 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${inter.variable} ${display.variable}`}>
-      <body className="min-h-dvh antialiased">
+      {/*
+        Browser extensions commonly add attributes to <body> before React
+        hydrates — ColorZilla's cz-shortcut-listen is the usual one — which
+        React reports as a hydration mismatch. Suppression here is shallow: it
+        covers this element's own attributes only, so genuine mismatches inside
+        the app are still reported.
+      */}
+      <body className="min-h-dvh antialiased" suppressHydrationWarning>
         <ThemeProvider>{children}</ThemeProvider>
         <JsonLd data={[organizationSchema(), websiteSchema()]} />
       </body>

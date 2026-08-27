@@ -1,31 +1,46 @@
 import { cn } from "@/lib/utils";
 
+/**
+ * The Alon lockup, inlined rather than loaded from public/logo.svg.
+ *
+ * Inlining is what lets the navy respond to the theme: --logo-ink is defined
+ * per colour scheme in globals.css, so the crescent lightens on dark surfaces
+ * instead of disappearing into them. An <img> could not do that.
+ *
+ * The wordmark ships as outlines. CorelDRAW exported it as live <text> bound
+ * to an embedded SVG font, a format no current browser supports, which would
+ * have rendered "Alon" in whatever serif the system fell back to. The glyph
+ * outlines were converted with the same transform the text layout produced,
+ * so the shapes are identical and no font is needed at all.
+ */
+
+/** The circular mark on its own, for square contexts. */
 export function LogoMark({ className }: { className?: string }) {
   return (
-    <svg viewBox="0 0 32 32" className={cn("size-8", className)} aria-hidden role="presentation">
-      <defs>
-        <linearGradient id="alon-mark" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stopColor="var(--primary)" />
-          <stop offset="100%" stopColor="var(--accent)" />
-        </linearGradient>
-      </defs>
-      <rect width="32" height="32" rx="9" fill="url(#alon-mark)" />
-      <path
-        d="M9 22.5 15.1 9.5a1 1 0 0 1 1.8 0L23 22.5h-3.4l-1.3-2.9h-4.6l-1.3 2.9H9Zm5.6-5.6h2.8L16 13.6l-1.4 3.3Z"
-        fill="white"
-        fillOpacity="0.95"
-      />
+    <svg viewBox="0 0 55.34 55.34" className={cn("size-8", className)} aria-hidden role="presentation">
+      <path fill="var(--logo-ink)" d="M10.27 49.18c-6.26,-5.07 -10.27,-12.82 -10.27,-21.51 0,-15.18 12.22,-27.5 27.35,-27.67l-17.08 49.18z" />
+      <path fill="var(--logo-ink-2)" d="M29.35 0.05c11.62,0.7 21.31,8.57 24.7,19.24 -5.29,-5.72 -12.35,-10.36 -19.97,-10.36 -3.16,0 -6.33,0.88 -8.82,2.97l4.09 -11.86z" />
+      <path fill="var(--logo-blue)" d="M54.99 23.25c0.23,1.44 0.35,2.91 0.35,4.41 0,15.14 -12.16,27.44 -27.25,27.67 5.11,-14.71 -4.06,-20.77 -4.65,-31.82 -0.41,-8.04 2.83,-12.69 10.11,-12.69 5.11,0 9.83,2.03 13.96,5.07 2.82,2.07 5.31,4.58 7.49,7.36z" />
     </svg>
   );
 }
 
-export function Logo({ className, wordmarkClassName }: { className?: string; wordmarkClassName?: string }) {
+/** The full lockup: mark plus the Alon wordmark. */
+export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cn("flex items-center gap-2.5", className)}>
-      <LogoMark />
-      <span className={cn("text-[17px] font-semibold tracking-tight", wordmarkClassName)}>
-        Alon<span className="text-[var(--muted-foreground)] font-normal">Software</span>
-      </span>
-    </span>
+    <svg
+      viewBox="0 0 213.77 55.34"
+      className={cn("h-8 w-auto", className)}
+      role="img"
+      aria-label="Alon Software"
+    >
+      <path fill="var(--logo-ink)" d="M10.27 49.18c-6.26,-5.07 -10.27,-12.82 -10.27,-21.51 0,-15.18 12.22,-27.5 27.35,-27.67l-17.08 49.18z" />
+      <path fill="var(--logo-ink-2)" d="M29.35 0.05c11.62,0.7 21.31,8.57 24.7,19.24 -5.29,-5.72 -12.35,-10.36 -19.97,-10.36 -3.16,0 -6.33,0.88 -8.82,2.97l4.09 -11.86z" />
+      <path fill="var(--logo-blue)" d="M54.99 23.25c0.23,1.44 0.35,2.91 0.35,4.41 0,15.14 -12.16,27.44 -27.25,27.67 5.11,-14.71 -4.06,-20.77 -4.65,-31.82 -0.41,-8.04 2.83,-12.69 10.11,-12.69 5.11,0 9.83,2.03 13.96,5.07 2.82,2.07 5.31,4.58 7.49,7.36z" />
+      <path fill="var(--logo-blue)" transform="translate(59.79 53.62) scale(0.07555 -0.07555)" d="M366.5 218.667c-38.4999,58.1669 -104.5,117.167 -177.667,117.167 -22.8333,0 -45.833,-6.33391 -63.8331,-21.5003l103.834 300.834 137.667 -396.5zm-221 -218.667c37.0005,106.5 -29.3336,150.333 -33.6666,230.333 -3.00001,58.1669 20.4999,91.8336 73.167,91.8336 36.9993,0 71.1661,-14.6662 101,-36.6667 57.0002,-41.8338 95.1662,-108.333 118,-174.167 19.0005,-56.1661 32.1673,-111.333 -22.8333,-111.333l267.834 0c-56.1673,0 -81.5005,56.6663 -101,113.833l-199.167 573.167 -144.333 0 17.4999 -50.8326 -220.999 -636.167 144.499 0z" />
+      <path fill="var(--logo-blue)" transform="translate(111.7684 53.62) scale(0.07555 -0.07555)" d="M199.834 573.167c0,70.3333 -17.0009,113.833 -97.6673,113.833l-101.5 0c56.1673,0 61.4996,-72.8331 61.4996,-113.833l0 -459.334c0,-41.4999 -5.33225,-113.833 -61.4996,-113.833l260.667 0c-56.1673,0 -61.4996,72.3329 -61.4996,113.833l0 459.334z" />
+      <path fill="var(--logo-blue)" transform="translate(134.4334 53.62) scale(0.07555 -0.07555)" d="M340 38.1673c-6.83411,-3.3339 -14.6674,-5.33349 -22.5007,-5.33349 -50.3324,0 -120.833,64.8335 -168.666,159.499 -56.3337,110.833 -61.6671,220.5 -11.8337,246 6.83287,3.3339 14.1672,4.83328 22.4995,4.83328 50.3336,0 120.833,-64.4996 169.167,-159.499 55.8334,-110.833 61.1669,-220.5 11.3335,-245.499zm-101.334 437.666c-131.833,0 -238.5,-106.333 -238.5,-237.667 0,-131.667 106.667,-238 238.5,-238 131.667,0 238.166,106.333 238.166,238 0,131.334 -106.5,237.667 -238.166,237.667z" />
+      <path fill="var(--logo-blue)" transform="translate(173.4172 53.62) scale(0.07555 -0.07555)" d="M199 113.833l0 253.168c20.4999,23.8325 50.8338,57.9994 85.167,57.9994 28.3332,0 49.8334,-26.3336 49.8334,-83.5001l0 -226.666c0,-71.3337 16.667,-114.833 96.9995,-114.833l102 0c-56.6663,0 -61.9998,72.8331 -61.9998,114.833l0 226.666c0,71.3337 -24.8342,134.5 -107.168,134.5 -64.4996,0 -123.833,-43.1669 -165.833,-88.9999 -3.99919,55.9998 -25.8333,88.9999 -95.9991,88.9999l-102 0c56.6663,0 61.9998,-72.5004 61.9998,-114l0 -247.166c0,-42.0001 -5.33349,-114.833 -61.9998,-114.833l260.667 0c-56.3337,0 -61.6671,72.3329 -61.6671,113.833z" />
+    </svg>
   );
 }

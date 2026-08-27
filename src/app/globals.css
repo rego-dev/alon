@@ -24,6 +24,12 @@
   --accent: oklch(0.68 0.16 195);
   --accent-soft: oklch(0.95 0.04 195);
 
+  /* Brand logo. The blue is constant; the navy is the only part that needs to
+     change, because at #0F3266 it is all but invisible on a dark surface. */
+  --logo-blue: #289fcc;
+  --logo-ink: #0f3266;
+  --logo-ink-2: #124880;
+
   --success: oklch(0.62 0.16 152);
   --success-soft: oklch(0.95 0.05 152);
   --warning: oklch(0.72 0.16 70);
@@ -54,6 +60,11 @@
 
   --accent: oklch(0.75 0.14 195);
   --accent-soft: oklch(0.30 0.06 195);
+
+  /* Same hues as the brand navy, lifted in lightness so the crescent reads
+     against a near-black surface. Tune these two values to taste. */
+  --logo-ink: #8fb3e0;
+  --logo-ink-2: #a1c3ec;
 
   --success: oklch(0.72 0.15 152);
   --success-soft: oklch(0.28 0.06 152);
