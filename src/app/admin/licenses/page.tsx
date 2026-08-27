@@ -1,6 +1,7 @@
 import { KeyRound, Search } from "lucide-react";
 import { adminCustomers, licenseStateBreakdown, offsetDays } from "@/data/demo-account";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
+import type { Product } from "@/types";
 import { seededInt } from "@/lib/hash";
 import { Badge, Card, DataTable, Input, Select, Td, Th } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,8 @@ const STATE_TONE = {
 const STATUS_MAP = { success: "good", primary: "good", warning: "warning", danger: "critical", neutral: "neutral" } as const;
 
 // A representative page of the licence register.
-const rows = Array.from({ length: 16 }, (_, i) => {
+const buildRows = (products: Product[]) =>
+  Array.from({ length: 16 }, (_, i) => {
   const product = products[seededInt(`lic:${i}:p`, 0, products.length - 1)];
   const customer = adminCustomers[i % adminCustomers.length];
   const state = STATES[seededInt(`lic:${i}:s`, 0, STATES.length - 1)];
@@ -36,7 +38,8 @@ const rows = Array.from({ length: 16 }, (_, i) => {
   };
 });
 
-export default function AdminLicensesPage() {
+export default async function AdminLicensesPage() {
+  const rows = buildRows(await listProducts());
   return (
     <>
       <PageTitle

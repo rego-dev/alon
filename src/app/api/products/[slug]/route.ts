@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getProduct } from "@/data/products";
+import { getProduct } from "@/lib/repositories/products";
 import { fail } from "@/lib/api";
 
 /** GET /api/products/[slug] — full product record. */
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
 
   if (!product) {
     return fail("not_found", `No product with slug "${slug}".`, 404);

@@ -1,12 +1,13 @@
 import { categories } from "@/data/categories";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import { HeaderClient, type ProductMenu } from "./header-client";
 
 /**
  * Server component: builds a compact menu payload so the full product catalogue
  * never ships to the client bundle.
  */
-export function SiteHeader() {
+export async function SiteHeader() {
+  const products = await listProducts();
   const menu: ProductMenu = categories.map((category) => ({
     slug: category.slug,
     name: category.name,

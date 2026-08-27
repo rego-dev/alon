@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import type { Metadata } from "next";
 import { CircleCheck } from "lucide-react";
 import { categories } from "@/data/categories";
-import { productSummaries } from "@/data/product-summary";
+import { listProductSummaries } from "@/lib/repositories/products";
 import { ProductCatalog } from "@/components/marketing/product-catalog";
 import { Section } from "@/components/ui/primitives";
 import { ClosingCta } from "@/components/marketing/sections";
@@ -30,6 +30,14 @@ function CatalogFallback() {
   );
 }
 
+/**
+ * Kept inside the Suspense boundary rather than awaited in the page body, so
+ * the catalogue streams in behind the fallback instead of blocking the header.
+ */
+async function Catalog() {
+  return <ProductCatalog products={await listProductSummaries()} categories={categories} />;
+}
+
 export default function ProductsPage() {
   return (
     <>
@@ -44,7 +52,7 @@ export default function ProductsPage() {
       <Section className="pt-0">
         <div className="container-page">
           <Suspense fallback={<CatalogFallback />}>
-            <ProductCatalog products={productSummaries} categories={categories} />
+            <Catalog />
           </Suspense>
         </div>
       </Section>

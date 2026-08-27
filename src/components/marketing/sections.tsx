@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight, CircleCheck, Download, Quote, ShieldCheck, TriangleAlert, Trash2, RefreshCw } from "lucide-react";
 import { categories } from "@/data/categories";
 import { company, heroStats, testimonials, trustLogos } from "@/data/company";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import { toSummary } from "@/data/product-summary";
 import { getIcon } from "@/lib/icons";
 import { Badge, Card, Section, SectionHeading } from "@/components/ui/primitives";
@@ -69,7 +69,8 @@ export function StatsBand() {
 
 /* ------------------------------- Categories -------------------------------- */
 
-export function CategoryGrid() {
+export async function CategoryGrid() {
+  const products = await listProducts();
   return (
     <Section muted id="categories">
       <div className="container-page">
@@ -118,7 +119,8 @@ export function CategoryGrid() {
 
 /* ---------------------------- Featured products ---------------------------- */
 
-export function FeaturedProducts() {
+export async function FeaturedProducts() {
+  const products = await listProducts();
   const featured = products.filter((p) => p.badge).slice(0, 6);
   return (
     <Section>

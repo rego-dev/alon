@@ -1,5 +1,6 @@
 import { clientKey, created, rateLimit, rateLimitResponse, readJson } from "@/lib/api";
 import { contactSchema } from "@/lib/validation";
+import { createContactRequest } from "@/lib/repositories/support";
 
 const ROUTING: Record<string, { team: string; sla: string }> = {
   sales: { team: "Sales", sla: "Usually within minutes during business hours" },
@@ -19,13 +20,14 @@ export async function POST(request: Request) {
   const enquiry = parsed.data;
 
   const routing = ROUTING[enquiry.topic] ?? ROUTING.other;
+  const record = await createContactRequest(enquiry);
 
   return created({
     data: {
       received: true,
       routedTo: routing.team,
       responseTarget: routing.sla,
-      receivedAt: new Date().toISOString(),
+      receivedAt: record.createdAt.toISOString(),
       // Larger organisations get a named contact rather than the shared queue.
       assignedOwner: ["200-999", "1000+"].includes(enquiry.employees) ? "Named account executive" : "Shared queue",
     },

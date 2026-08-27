@@ -1,6 +1,7 @@
 import { Clock, LifeBuoy, TriangleAlert } from "lucide-react";
 import { adminCustomers, offsetDays } from "@/data/demo-account";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
+import type { Product } from "@/types";
 import { seededInt } from "@/lib/hash";
 import { Badge, Card, DataTable, Select, Td, Th } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -27,7 +28,8 @@ const SEVERITIES = ["production-down", "high", "normal", "normal", "low", "quest
 const STATUSES = ["open", "in_progress", "pending_customer", "resolved"] as const;
 const AGENTS = ["Alex R.", "Nina P.", "Marco D.", "Grace L.", "Unassigned"];
 
-const tickets = SUBJECTS.map((subject, i) => {
+const buildTickets = (products: Product[]) =>
+  SUBJECTS.map((subject, i) => {
   const severity = SEVERITIES[seededInt(`tk:${i}:sev`, 0, SEVERITIES.length - 1)];
   const status = STATUSES[seededInt(`tk:${i}:st`, 0, STATUSES.length - 1)];
   return {
@@ -58,7 +60,8 @@ const STATUS_TONE = {
   resolved: "success",
 } as const;
 
-export default function AdminTicketsPage() {
+export default async function AdminTicketsPage() {
+  const tickets = buildTickets(await listProducts());
   const open = tickets.filter((t) => t.status !== "resolved").length;
   const urgent = tickets.filter((t) => t.severity === "production-down").length;
   const breaching = tickets.filter((t) => t.firstResponseMins > 60 && t.severity !== "question").length;

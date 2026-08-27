@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getProduct } from "@/data/products";
+import { getProduct } from "@/lib/repositories/products";
 import { installerFileName } from "@/data/downloads";
 import { clientKey, fail, rateLimit, rateLimitResponse } from "@/lib/api";
 import type { Architecture, InstallerType, PlatformId } from "@/types";
@@ -17,7 +17,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
   if (!limit.allowed) return rateLimitResponse(limit.resetAt);
 
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
   if (!product) return fail("not_found", `No product with slug "${slug}".`, 404);
 
   const url = new URL(request.url);

@@ -1,6 +1,7 @@
 import { Monitor, Search, ShieldCheck } from "lucide-react";
 import { adminCustomers, offsetDays } from "@/data/demo-account";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
+import type { Product } from "@/types";
 import { pseudoSha256, seededInt } from "@/lib/hash";
 import { Badge, Card, DataTable, Input, Select, Td, Th } from "@/components/ui/primitives";
 import { PageTitle } from "@/components/layout/app-shell";
@@ -10,7 +11,8 @@ import { formatCompact, formatDate } from "@/lib/utils";
 
 const PLATFORMS = ["windows", "macos", "linux", "android", "ios"] as const;
 
-const registrations = Array.from({ length: 16 }, (_, i) => {
+const buildRegistrations = (products: Product[]) =>
+  Array.from({ length: 16 }, (_, i) => {
   const customer = adminCustomers[i % adminCustomers.length];
   const platform = PLATFORMS[seededInt(`dev:${i}:p`, 0, PLATFORMS.length - 1)];
   const daysAgo = seededInt(`dev:${i}:d`, 0, 40);
@@ -28,7 +30,8 @@ const registrations = Array.from({ length: 16 }, (_, i) => {
   };
 });
 
-export default function AdminDevicesPage() {
+export default async function AdminDevicesPage() {
+  const registrations = buildRegistrations(await listProducts());
   const active = registrations.filter((d) => d.status === "active").length;
   const vms = registrations.filter((d) => d.isVm).length;
 

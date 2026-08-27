@@ -1,6 +1,7 @@
 import { Hourglass, TrendingUp } from "lucide-react";
 import { adminCustomers, adminKpis, offsetDays, trialFunnel } from "@/data/demo-account";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
+import type { Product } from "@/types";
 import { seededInt } from "@/lib/hash";
 import { Badge, Card, DataTable, Select, Td, Th } from "@/components/ui/primitives";
 import { PageTitle } from "@/components/layout/app-shell";
@@ -11,7 +12,8 @@ import { formatCompact, formatDate } from "@/lib/utils";
 
 const PLATFORMS = ["windows", "macos", "linux", "android", "ios"] as const;
 
-const activations = Array.from({ length: 14 }, (_, i) => {
+const buildActivations = (products: Product[]) =>
+  Array.from({ length: 14 }, (_, i) => {
   const product = products[seededInt(`trial:${i}:p`, 0, products.length - 1)];
   const customer = adminCustomers[i % adminCustomers.length];
   const dayOfTrial = seededInt(`trial:${i}:d`, 1, 30);
@@ -30,7 +32,8 @@ const activations = Array.from({ length: 14 }, (_, i) => {
   };
 });
 
-export default function AdminTrialsPage() {
+export default async function AdminTrialsPage() {
+  const activations = buildActivations(await listProducts());
   const flagged = activations.filter((a) => a.flagged).length;
 
   return (

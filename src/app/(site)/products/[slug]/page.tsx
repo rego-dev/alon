@@ -11,7 +11,7 @@ import {
   ShieldCheck,
   Star,
 } from "lucide-react";
-import { getProduct, products, relatedProducts } from "@/data/products";
+import { getProduct, listProductSlugs, listRelatedProducts } from "@/lib/repositories/products";
 import { categoryBySlug } from "@/data/categories";
 import { toSummary } from "@/data/product-summary";
 import { getIcon } from "@/lib/icons";
@@ -33,13 +33,13 @@ import {
 } from "@/lib/seo";
 import { formatCompact, formatDate, formatNumber } from "@/lib/utils";
 
-export function generateStaticParams() {
-  return products.map((product) => ({ slug: product.slug }));
+export async function generateStaticParams() {
+  return (await listProductSlugs()).map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
   if (!product) return pageMetadata({ title: "Product not found", description: "", path: `/products/${slug}`, noIndex: true });
 
   return pageMetadata({
@@ -58,11 +58,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const product = getProduct(slug);
+  const product = await getProduct(slug);
   if (!product) notFound();
 
   const category = categoryBySlug[product.category];
-  const related = relatedProducts(product);
+  const related = await listRelatedProducts(product);
   const latest = product.releases[0];
 
   return (

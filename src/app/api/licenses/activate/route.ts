@@ -1,7 +1,8 @@
 import { clientKey, created, fail, rateLimit, rateLimitResponse, readJson } from "@/lib/api";
 import { trialActivationSchema } from "@/lib/validation";
-import { getProduct } from "@/data/products";
-import { computeFingerprint, evaluateTrialRequest, type TrialHistory } from "@/lib/licensing/anti-abuse";
+import { getProduct } from "@/lib/repositories/products";
+import { getTrialHistory } from "@/lib/repositories/licensing";
+import { computeFingerprint, evaluateTrialRequest } from "@/lib/licensing/anti-abuse";
 import { evaluateLicense, reminderSchedule } from "@/lib/licensing/state-machine";
 import { resolvePolicy } from "@/lib/licensing/policy";
 
@@ -21,7 +22,7 @@ export async function POST(request: Request) {
   if (parsed.response) return parsed.response;
   const input = parsed.data;
 
-  const product = getProduct(input.productSlug);
+  const product = await getProduct(input.productSlug);
   if (!product) return fail("not_found", `No product with slug "${input.productSlug}".`, 404);
 
   const fingerprint = computeFingerprint({
@@ -34,17 +35,14 @@ export async function POST(request: Request) {
     hostname: input.device.hostname,
   });
 
-  // In production these come from the database. The empty history here means a
-  // first-time activation, which is the path worth showing.
-  const history: TrialHistory = {
-    seenStrictHashes: new Set(),
-    seenTolerantHashes: new Set(),
-    organisationTrials: 0,
-    recentActivations: 0,
-    highWaterClock: null,
-  };
-
   const serverClock = new Date();
+
+  // Prior trials, fingerprint sightings and activation velocity for this
+  // organisation. Under the demo backend this is empty, which is the
+  // first-time activation path; against a database it is the real history,
+  // which is what makes the abuse rules bite.
+  const history = await getTrialHistory(input.organisationId, fingerprint, serverClock);
+
   const decision = evaluateTrialRequest(
     {
       organisationId: input.organisationId,

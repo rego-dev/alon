@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import type { CategorySlug } from "@/types";
 
 /** GET /api/products — public catalogue listing with optional filters. */
@@ -10,14 +10,7 @@ export async function GET(request: Request) {
   const query = url.searchParams.get("q")?.toLowerCase();
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 100);
 
-  const results = products
-    .filter((product) => {
-      if (category && product.category !== category) return false;
-      if (platform && !product.platforms.includes(platform as never)) return false;
-      if (query && !`${product.name} ${product.tagline} ${product.overview}`.toLowerCase().includes(query)) return false;
-      return true;
-    })
-    .slice(0, limit)
+  const results = (await listProducts({ category, platform, query, limit }))
     .map((product) => ({
       slug: product.slug,
       name: product.name,

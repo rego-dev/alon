@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Download, HardDrive } from "lucide-react";
 import { adminKpis, downloadSeries } from "@/data/demo-account";
 import { downloadIndex } from "@/data/downloads";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import { getIcon } from "@/lib/icons";
 import { DataTable, Select, Td, Th } from "@/components/ui/primitives";
 import { PageTitle } from "@/components/layout/app-shell";
@@ -11,7 +11,8 @@ import { StackedBarChart } from "@/components/charts/stacked-bar-chart";
 import { PLATFORM_META } from "@/components/marketing/platform-icons";
 import { formatCompact, formatDate } from "@/lib/utils";
 
-export default function AdminDownloadsPage() {
+export default async function AdminDownloadsPage() {
+  const products = await listProducts();
   const artifacts = downloadIndex.reduce((sum, entry) => sum + entry.builds.length, 0);
   const topProducts = [...products].sort((a, b) => b.downloads - a.downloads).slice(0, 10);
 

@@ -1,5 +1,6 @@
 import { clientKey, created, rateLimit, rateLimitResponse, readJson, reference } from "@/lib/api";
 import { ticketSchema } from "@/lib/validation";
+import { createTicket } from "@/lib/repositories/support";
 
 const RESPONSE_TARGET: Record<string, string> = {
   "production-down": "15 minutes",
@@ -24,16 +25,17 @@ export async function POST(request: Request) {
   if (parsed.response) return parsed.response;
   const ticket = parsed.data;
 
-  const ref = reference("ALN");
+  const record = await createTicket(ticket, reference("ALN"));
+  const ref = record.reference;
 
   return created({
     data: {
       reference: ref,
-      status: "open",
-      severity: ticket.severity,
+      status: record.status,
+      severity: record.severity,
       responseTarget: RESPONSE_TARGET[ticket.severity] ?? "1 business day",
       escalated: ticket.severity === "production-down",
-      createdAt: new Date().toISOString(),
+      createdAt: record.createdAt.toISOString(),
       uploadUrl: `/portal/support/${ref}/attachments`,
       message:
         ticket.severity === "production-down"

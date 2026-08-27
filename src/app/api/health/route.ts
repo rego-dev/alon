@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { dbMode } from "@/lib/db";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 
 /** GET /api/health — liveness and configuration probe. */
 export async function GET() {
@@ -10,7 +10,7 @@ export async function GET() {
       time: new Date().toISOString(),
       version: process.env.npm_package_version ?? "0.1.0",
       dataSource: dbMode(),
-      catalogue: { products: products.length },
+      catalogue: { products: (await listProducts()).length },
       services: {
         licensing: "ok",
         payments: process.env.STRIPE_SECRET_KEY ? "configured" : "not_configured",

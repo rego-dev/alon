@@ -1,5 +1,6 @@
 import { adminKpis, downloadSeries, licenseStateBreakdown, revenueSeries, trialFunnel } from "@/data/demo-account";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
+import type { Product } from "@/types";
 import { categories } from "@/data/categories";
 import { seededInt } from "@/lib/hash";
 import { Card, DataTable, Select, Td, Th } from "@/components/ui/primitives";
@@ -13,7 +14,8 @@ import { formatCompact, formatCurrency, formatNumber } from "@/lib/utils";
 const STATUS_MAP = { success: "good", primary: "good", warning: "warning", danger: "critical", neutral: "neutral" } as const;
 
 // Category performance derived from the catalogue itself.
-const byCategory = categories.map((category) => {
+const buildByCategory = (products: Product[]) =>
+  categories.map((category) => {
   const items = products.filter((p) => p.category === category.slug);
   const downloads = items.reduce((sum, p) => sum + p.downloads, 0);
   const trials = Math.round(downloads * 0.42);
@@ -29,7 +31,8 @@ const byCategory = categories.map((category) => {
   };
 });
 
-export default function AdminAnalyticsPage() {
+export default async function AdminAnalyticsPage() {
+  const byCategory = buildByCategory(await listProducts());
   return (
     <>
       <PageTitle

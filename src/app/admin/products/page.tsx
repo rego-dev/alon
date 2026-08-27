@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Plus } from "lucide-react";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import { categories, categoryBySlug } from "@/data/categories";
 import { getIcon } from "@/lib/icons";
 import { Badge, Card, DataTable, Td, Th } from "@/components/ui/primitives";
@@ -8,7 +8,8 @@ import { Button } from "@/components/ui/button";
 import { PageTitle } from "@/components/layout/app-shell";
 import { formatCompact, formatDate } from "@/lib/utils";
 
-export default function AdminProductsPage() {
+export default async function AdminProductsPage() {
+  const products = await listProducts();
   return (
     <>
       <PageTitle

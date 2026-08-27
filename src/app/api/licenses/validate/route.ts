@@ -1,8 +1,9 @@
 import { z } from "zod";
-import { clientKey, ok, rateLimit, rateLimitResponse, readJson } from "@/lib/api";
-import { evaluateLicense, type LicenseSnapshot } from "@/lib/licensing/state-machine";
+import { clientKey, fail, ok, rateLimit, rateLimitResponse, readJson } from "@/lib/api";
+import { evaluateLicense } from "@/lib/licensing/state-machine";
 import { detectClockTampering } from "@/lib/licensing/anti-abuse";
 import { resolvePolicy } from "@/lib/licensing/policy";
+import { getDeviceHighWater, getLicense, recordHeartbeat } from "@/lib/repositories/licensing";
 
 const validateSchema = z.object({
   licenseId: z.string().min(1),
@@ -11,17 +12,6 @@ const validateSchema = z.object({
   appVersion: z.string().optional(),
   /** The client echoes what it believes so the server can correct it. */
   cachedState: z.string().optional(),
-  /** Present only in this demo build — production reads these from the DB. */
-  snapshot: z
-    .object({
-      trialStartedAt: z.iso.datetime(),
-      subscriptionEndsAt: z.iso.datetime().nullable().default(null),
-      extensionDays: z.number().int().min(0).default(0),
-      lastValidatedAt: z.iso.datetime().nullable().default(null),
-      highWaterClock: z.iso.datetime().nullable().default(null),
-    })
-    .optional(),
-  plan: z.enum(["starter", "business", "enterprise"]).nullable().default(null),
 });
 
 /**
@@ -30,6 +20,11 @@ const validateSchema = z.object({
  * The heartbeat every installed client makes. It returns the authoritative
  * licence phase and capability map — the client never decides its own state,
  * it only caches the last signed answer for the offline tolerance window.
+ *
+ * Both the licence snapshot and the clock high-water mark are read from
+ * storage rather than from the request body. A client that could supply its
+ * own trial start date or plan would be able to grant itself an indefinite
+ * trial on the highest tier.
  */
 export async function POST(request: Request) {
   // Validation is deliberately generous: locking a shop out because their
@@ -41,28 +36,41 @@ export async function POST(request: Request) {
   if (parsed.response) return parsed.response;
   const input = parsed.data;
 
+  const license = await getLicense(input.licenseId);
+  if (!license) {
+    return fail("not_found", `No licence matching "${input.licenseId}".`, 404);
+  }
+
   const now = new Date();
   const clientClock = new Date(input.clientClock);
-  const highWater = input.snapshot?.highWaterClock ? new Date(input.snapshot.highWaterClock) : null;
+  const highWater = await getDeviceHighWater(input.fingerprintStrict);
   const tamper = detectClockTampering(clientClock, highWater);
 
-  const policy = resolvePolicy(input.plan);
+  const policy = resolvePolicy(license.plan);
 
-  const snapshot: LicenseSnapshot = input.snapshot
-    ? {
-        trialStartedAt: new Date(input.snapshot.trialStartedAt),
-        subscriptionEndsAt: input.snapshot.subscriptionEndsAt ? new Date(input.snapshot.subscriptionEndsAt) : null,
-        extensionDays: input.snapshot.extensionDays,
-        lastValidatedAt: input.snapshot.lastValidatedAt ? new Date(input.snapshot.lastValidatedAt) : now,
-        suspendedAt: tamper.tampered ? now : null,
-      }
-    : { trialStartedAt: now, subscriptionEndsAt: null, lastValidatedAt: now };
+  // A device caught moving its clock backwards is treated as suspended for
+  // this evaluation, without waiting for an operator to intervene.
+  const snapshot = tamper.tampered
+    ? { ...license.snapshot, suspendedAt: license.snapshot.suspendedAt ?? now }
+    : license.snapshot;
 
   const evaluation = evaluateLicense(snapshot, policy, now);
 
+  // Advances the device's high-water mark, so a rollback after this point is
+  // detectable on the next heartbeat.
+  if (!tamper.tampered) {
+    await recordHeartbeat({
+      licenseId: license.id,
+      fingerprintStrict: input.fingerprintStrict,
+      clientClock,
+      appVersion: input.appVersion,
+      now,
+    });
+  }
+
   return ok({
     data: {
-      licenseId: input.licenseId,
+      licenseId: license.id,
       state: evaluation.state,
       daysRemaining: evaluation.daysRemaining,
       capabilities: evaluation.capabilities,

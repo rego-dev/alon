@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Layers, Rocket } from "lucide-react";
 import { releaseFeed } from "@/data/downloads";
-import { products } from "@/data/products";
+import { listProducts } from "@/lib/repositories/products";
 import { getIcon } from "@/lib/icons";
 import { Badge, Card, DataTable, Td, Th } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,8 @@ import { PageTitle } from "@/components/layout/app-shell";
 import { StatTile } from "@/components/charts/stat-tile";
 import { formatDate } from "@/lib/utils";
 
-export default function AdminVersionsPage() {
+export default async function AdminVersionsPage() {
+  const products = await listProducts();
   const totalReleases = products.reduce((sum, p) => sum + p.releases.length, 0);
 
   return (
