@@ -1,0 +1,755 @@
+// Alon Software — SaaS marketplace & licensing platform
+// PostgreSQL schema. Generate the client with `npx prisma generate`,
+// apply with `npx prisma migrate dev`.
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+// Prisma 7 moves the connection URL out of the schema — see prisma.config.ts
+// for Migrate, and the PrismaClient adapter in src/lib/db.ts for runtime.
+datasource db {
+  provider = "postgresql"
+}
+
+/* ==========================================================================
+   Identity & organisations
+   ========================================================================== */
+
+model Organisation {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  name          String
+  emailDomain   String?
+  country       String   @default("US")
+  vatNumber     String?
+  billingEmail  String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  region        String?
+  postalCode    String?
+
+  /** Administrator-configurable licensing policy. Null = platform defaults. */
+  policy        Json?
+
+  /** Guards the "one trial per organisation" rule. */
+  trialsGranted Int      @default(0)
+
+  status        OrgStatus @default(ACTIVE)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  users         User[]
+  licenses      License[]
+  devices       Device[]
+  subscriptions Subscription[]
+  invoices      Invoice[]
+  tickets       SupportTicket[]
+  downloads     DownloadEvent[]
+  auditLogs     AuditLog[]
+  abuseSignals  AbuseSignal[]
+  apiKeys       ApiKey[]
+
+  @@index([emailDomain])
+  @@index([status])
+}
+
+enum OrgStatus {
+  ACTIVE
+  SUSPENDED
+  CLOSED
+}
+
+model User {
+  id             String   @id @default(cuid())
+  organisationId String
+  email          String   @unique
+  name           String
+  passwordHash   String?
+  role           UserRole @default(MEMBER)
+  emailVerified  DateTime?
+  mfaEnabled     Boolean  @default(false)
+  mfaSecret      String?
+  lastLoginAt    DateTime?
+  locale         String   @default("en")
+  status         UserStatus @default(ACTIVE)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  sessions       Session[]
+  identities     OAuthIdentity[]
+  tickets        SupportTicket[]
+  auditLogs      AuditLog[]
+
+  @@index([organisationId])
+  @@index([email])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  BILLING
+  MEMBER
+  /** Platform staff — not an organisation role. */
+  PLATFORM_ADMIN
+  PLATFORM_SUPPORT
+}
+
+enum UserStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  expiresAt    DateTime
+  revokedAt    DateTime?
+  createdAt    DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model OAuthIdentity {
+  id             String @id @default(cuid())
+  userId         String
+  provider       String
+  providerUserId String
+  createdAt      DateTime @default(now())
+
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerUserId])
+  @@index([userId])
+}
+
+model ApiKey {
+  id             String   @id @default(cuid())
+  organisationId String
+  name           String
+  /** Only the hash is stored; the secret is shown once at creation. */
+  keyHash        String   @unique
+  prefix         String
+  scopes         String[]
+  lastUsedAt     DateTime?
+  expiresAt      DateTime?
+  revokedAt      DateTime?
+  createdAt      DateTime @default(now())
+
+  organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+
+  @@index([organisationId])
+}
+
+/* ==========================================================================
+   Catalogue
+   ========================================================================== */
+
+model Product {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  category    ProductCategory
+  tagline     String
+  overview    String
+  icon        String
+  priceFrom   Int
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions    ProductVersion[]
+  licenses    License[]
+  downloads   DownloadEvent[]
+  reviews     Review[]
+
+  @@index([category, published])
+}
+
+enum ProductCategory {
+  RETAIL
+  ACCOUNTING
+  HUMAN_RESOURCES
+  HEALTHCARE
+  BUSINESS_OPERATIONS
+  EDUCATION
+}
+
+model ProductVersion {
+  id          String   @id @default(cuid())
+  productId   String
+  version     String
+  channel     ReleaseChannel @default(STABLE)
+  releasedAt  DateTime
+  highlights  String[]
+  fixes       String[]
+  isCurrent   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  artifacts   BuildArtifact[]
+
+  @@unique([productId, version])
+  @@index([productId, isCurrent])
+}
+
+enum ReleaseChannel {
+  STABLE
+  BETA
+  PINNED
+}
+
+model BuildArtifact {
+  id            String   @id @default(cuid())
+  versionId     String
+  platform      Platform
+  architecture  Architecture
+  installerType InstallerType
+  fileName      String
+  sizeBytes     BigInt
+  sha256        String
+  storageKey    String
+  minOs         String
+  createdAt     DateTime @default(now())
+
+  version       ProductVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  downloads     DownloadEvent[]
+
+  @@unique([versionId, platform, architecture, installerType])
+  @@index([sha256])
+}
+
+enum Platform {
+  WINDOWS
+  MACOS
+  LINUX
+  ANDROID
+  IOS
+}
+
+enum Architecture {
+  X64
+  ARM64
+}
+
+enum InstallerType {
+  ONLINE
+  OFFLINE
+}
+
+model Review {
+  id             String   @id @default(cuid())
+  productId      String
+  organisationId String?
+  authorName     String
+  authorRole     String?
+  companyName    String?
+  rating         Int
+  title          String
+  body           String
+  verified       Boolean  @default(false)
+  publishedAt    DateTime @default(now())
+
+  product        Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([productId, publishedAt])
+}
+
+/* ==========================================================================
+   Licensing
+   ========================================================================== */
+
+model License {
+  id               String   @id @default(cuid())
+  organisationId   String
+  productId        String
+  key              String   @unique
+  state            LicenseState @default(TRIAL)
+  plan             Plan?
+
+  trialStartedAt   DateTime  @default(now())
+  trialEndsAt      DateTime
+  extensionDays    Int       @default(0)
+  subscriptionEndsAt DateTime?
+  graceEndsAt      DateTime?
+  purgeAt          DateTime?
+  purgedAt         DateTime?
+  suspendedAt      DateTime?
+  lastValidatedAt  DateTime?
+
+  deviceLimit      Int       @default(1)
+  /** Snapshot of the policy in force when the licence was issued. */
+  policySnapshot   Json?
+
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  organisation     Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  product          Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  activations      Activation[]
+  events           LicenseEvent[]
+  reminders        Reminder[]
+  subscription     Subscription?
+
+  @@unique([organisationId, productId])
+  @@index([state])
+  @@index([trialEndsAt])
+  @@index([graceEndsAt])
+}
+
+enum LicenseState {
+  TRIAL
+  ACTIVE
+  GRACE
+  EXPIRED
+  PURGED
+  SUSPENDED
+}
+
+enum Plan {
+  STARTER
+  BUSINESS
+  ENTERPRISE
+}
+
+model Device {
+  id                String   @id @default(cuid())
+  organisationId    String
+  /** Hash of all fingerprint components — changes on any hardware change. */
+  fingerprintStrict String
+  /** Hash of non-swappable components — survives a disk or NIC replacement. */
+  fingerprintTolerant String
+  hostname          String?
+  platform          Platform
+  osVersion         String?
+  isVirtualMachine  Boolean  @default(false)
+  firstSeenAt       DateTime @default(now())
+  lastSeenAt        DateTime @default(now())
+  /** Monotonic high-water mark of client time — detects clock rollback. */
+  clockHighWater    DateTime?
+  releasedAt        DateTime?
+
+  organisation      Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  activations       Activation[]
+
+  @@unique([organisationId, fingerprintStrict])
+  @@index([fingerprintTolerant])
+  @@index([organisationId, releasedAt])
+}
+
+model Activation {
+  id           String   @id @default(cuid())
+  licenseId    String
+  deviceId     String
+  activatedAt  DateTime @default(now())
+  deactivatedAt DateTime?
+  lastHeartbeat DateTime?
+  appVersion   String?
+
+  license      License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  device       Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@unique([licenseId, deviceId])
+  @@index([licenseId, deactivatedAt])
+}
+
+model LicenseEvent {
+  id         String   @id @default(cuid())
+  licenseId  String
+  type       LicenseEventType
+  fromState  LicenseState?
+  toState    LicenseState?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  license    License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([licenseId, createdAt])
+  @@index([type, createdAt])
+}
+
+enum LicenseEventType {
+  TRIAL_STARTED
+  TRIAL_EXTENDED
+  ACTIVATED
+  DEACTIVATED
+  VALIDATED
+  GRACE_STARTED
+  EXPIRED
+  SUBSCRIPTION_ACTIVATED
+  SUSPENDED
+  REINSTATED
+  DATA_PURGED
+  TRANSFER
+}
+
+model Reminder {
+  id         String   @id @default(cuid())
+  licenseId  String
+  label      String
+  channel    ReminderChannel
+  subject    String
+  sendAt     DateTime
+  sentAt     DateTime?
+  failedAt   DateTime?
+  attempts   Int      @default(0)
+
+  license    License  @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+
+  @@index([sendAt, sentAt])
+  @@index([licenseId])
+}
+
+enum ReminderChannel {
+  EMAIL
+  IN_APP
+  SMS
+  PUSH
+}
+
+model AbuseSignal {
+  id             String   @id @default(cuid())
+  organisationId String?
+  signal         String
+  fingerprintStrict String?
+  emailDomain    String?
+  ipAddress      String?
+  blocked        Boolean  @default(false)
+  reviewedAt     DateTime?
+  reviewedBy     String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+
+  @@index([signal, createdAt])
+  @@index([organisationId])
+}
+
+/* ==========================================================================
+   Commerce
+   ========================================================================== */
+
+model Subscription {
+  id                   String   @id @default(cuid())
+  organisationId       String
+  licenseId            String   @unique
+  plan                 Plan
+  cycle                BillingCycle @default(ANNUAL)
+  status               SubscriptionStatus @default(ACTIVE)
+  quantity             Int      @default(1)
+  unitAmount           Int
+  currency             String   @default("USD")
+  discountPercent      Int      @default(0)
+  couponId             String?
+
+  provider             PaymentProvider @default(STRIPE)
+  providerSubscriptionId String?
+  providerCustomerId   String?
+
+  currentPeriodStart   DateTime
+  currentPeriodEnd     DateTime
+  cancelAtPeriodEnd    Boolean  @default(false)
+  canceledAt           DateTime?
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  organisation         Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  license              License      @relation(fields: [licenseId], references: [id], onDelete: Cascade)
+  coupon               Coupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  invoices             Invoice[]
+
+  @@index([organisationId, status])
+  @@index([currentPeriodEnd])
+}
+
+enum BillingCycle {
+  MONTHLY
+  ANNUAL
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+  PAUSED
+}
+
+enum PaymentProvider {
+  STRIPE
+  PAYPAL
+  GCASH
+  MAYA
+  BANK_TRANSFER
+}
+
+model Invoice {
+  id             String   @id @default(cuid())
+  organisationId String
+  subscriptionId String?
+  number         String   @unique
+  status         InvoiceStatus @default(OPEN)
+  subtotal       Int
+  taxAmount      Int      @default(0)
+  discountAmount Int      @default(0)
+  total          Int
+  currency       String   @default("USD")
+  issuedAt       DateTime @default(now())
+  dueAt          DateTime
+  paidAt         DateTime?
+  hostedUrl      String?
+  pdfUrl         String?
+  lines          Json
+
+  organisation   Organisation  @relation(fields: [organisationId], references: [id], onDelete: Cascade)
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+  payments       Payment[]
+
+  @@index([organisationId, issuedAt])
+  @@index([status, dueAt])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+  UNCOLLECTIBLE
+}
+
+model Payment {
+  id                String   @id @default(cuid())
+  invoiceId         String
+  provider          PaymentProvider
+  providerPaymentId String?
+  amount            Int
+  currency          String   @default("USD")
+  status            PaymentStatus @default(PENDING)
+  failureReason     String?
+  processedAt       DateTime?
+  createdAt         DateTime @default(now())
+
+  invoice           Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([status, createdAt])
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+}
+
+model Coupon {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  description     String?
+  percentOff      Int?
+  amountOff       Int?
+  currency        String   @default("USD")
+  appliesToPlans  Plan[]
+  maxRedemptions  Int?
+  timesRedeemed   Int      @default(0)
+  validFrom       DateTime @default(now())
+  validUntil      DateTime?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  subscriptions   Subscription[]
+
+  @@index([active, validUntil])
+}
+
+/* ==========================================================================
+   Engagement & operations
+   ========================================================================== */
+
+model DownloadEvent {
+  id             String   @id @default(cuid())
+  productId      String
+  artifactId     String?
+  organisationId String?
+  platform       Platform
+  architecture   Architecture
+  installerType  InstallerType
+  ipCountry      String?
+  referrer       String?
+  createdAt      DateTime @default(now())
+
+  product        Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  artifact       BuildArtifact? @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  organisation   Organisation?  @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([createdAt])
+}
+
+model SupportTicket {
+  id             String   @id @default(cuid())
+  organisationId String?
+  userId         String?
+  reference      String   @unique
+  productSlug    String?
+  version        String?
+  severity       TicketSeverity @default(NORMAL)
+  status         TicketStatus   @default(OPEN)
+  subject        String
+  body           String
+  contactName    String
+  contactEmail   String
+  assignedTo     String?
+  firstResponseAt DateTime?
+  resolvedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  messages       TicketMessage[]
+
+  @@index([status, severity, createdAt])
+  @@index([organisationId])
+}
+
+enum TicketSeverity {
+  QUESTION
+  LOW
+  NORMAL
+  HIGH
+  PRODUCTION_DOWN
+}
+
+enum TicketStatus {
+  OPEN
+  PENDING_CUSTOMER
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+model TicketMessage {
+  id        String   @id @default(cuid())
+  ticketId  String
+  authorName String
+  isStaff   Boolean  @default(false)
+  body      String
+  createdAt DateTime @default(now())
+
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId, createdAt])
+}
+
+model ContactRequest {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  company   String
+  phone     String?
+  topic     String
+  employees String
+  message   String
+  handledAt DateTime?
+  createdAt DateTime @default(now())
+
+  @@index([topic, createdAt])
+}
+
+model BlogPost {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  description String
+  category    String
+  author      String
+  authorRole  String
+  body        Json
+  tags        String[]
+  featured    Boolean  @default(false)
+  published   Boolean  @default(false)
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([published, publishedAt])
+  @@index([category])
+}
+
+model DocArticle {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  title       String
+  section     String
+  description String
+  body        Json
+  keywords    String[]
+  readTime    Int      @default(5)
+  published   Boolean  @default(true)
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+
+  @@index([section, published])
+}
+
+model AuditLog {
+  id             String   @id @default(cuid())
+  organisationId String?
+  userId         String?
+  actorLabel     String
+  action         String
+  targetType     String?
+  targetId       String?
+  ipAddress      String?
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  organisation   Organisation? @relation(fields: [organisationId], references: [id], onDelete: SetNull)
+  user           User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([organisationId, createdAt])
+  @@index([action, createdAt])
+}
+
+model WebhookEndpoint {
+  id             String   @id @default(cuid())
+  organisationId String
+  url            String
+  secret         String
+  events         String[]
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  deliveries     WebhookDelivery[]
+
+  @@index([organisationId, active])
+}
+
+model WebhookDelivery {
+  id          String   @id @default(cuid())
+  endpointId  String
+  event       String
+  payload     Json
+  statusCode  Int?
+  attempts    Int      @default(0)
+  deliveredAt DateTime?
+  nextRetryAt DateTime?
+  createdAt   DateTime @default(now())
+
+  endpoint    WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([nextRetryAt])
+  @@index([endpointId, createdAt])
+}
